@@ -1,5 +1,3 @@
-
-
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar
 
 from narwhals._utils import CompliantT_co, _StoresCompliant

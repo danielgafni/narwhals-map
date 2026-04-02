@@ -1,5 +1,3 @@
-
-
 from typing import TYPE_CHECKING, Any
 
 from narwhals._polars.series import PolarsSeriesNamespace

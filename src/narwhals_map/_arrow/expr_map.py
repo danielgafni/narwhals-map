@@ -1,4 +1,3 @@
-
 from typing import Any
 
 from narwhals._compliant.expr import EagerExprNamespace

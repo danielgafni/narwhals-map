@@ -1,5 +1,3 @@
-
-
 from typing import TYPE_CHECKING, Any
 
 import polars_map  # noqa: F401 - registers .map on pl.Expr

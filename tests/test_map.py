@@ -1,5 +1,3 @@
-
-
 from typing import Any
 
 import narwhals as nw
@@ -9,7 +7,7 @@ from pytest_cases import parametrize_with_cases
 
 import narwhals_map  # noqa: F401 - triggers monkey-patching
 
-BACKENDS = ["pyarrow", "polars_eager", "polars_lazy"]
+BACKENDS = ["pyarrow", "polars_eager", "polars_lazy", "ibis"]
 
 
 class MapCases:
@@ -39,6 +37,10 @@ class MapCases:
 def to_backend(pa_table: pa.Table, backend: str) -> Any:
     if backend == "pyarrow":
         return pa_table
+    if backend == "ibis":
+        import ibis
+
+        return ibis.memtable(pa_table)
     import polars as pl
 
     df = pl.from_arrow(pa_table)
@@ -71,7 +73,7 @@ def test_series_map_get_pyarrow(pa_table: pa.Table, key: Any, expected: list[Any
 def test_series_map_get_polars(pa_table: pa.Table, key: Any, expected: list[Any]) -> None:
     import polars as pl
 
-    pl_series = pl.from_arrow(pa_table)["map_col"]
+    pl_series = pl.from_arrow(pa_table)["map_col"]  # pyrefly: ignore [bad-index]
     series = nw.from_native(pl_series, series_only=True)
     result = series.map.get(key)  # pyrefly: ignore [missing-attribute]
     assert result.to_list() == expected

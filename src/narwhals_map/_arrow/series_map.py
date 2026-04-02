@@ -1,5 +1,3 @@
-
-
 from typing import TYPE_CHECKING, Any
 
 import pyarrow.compute as pc

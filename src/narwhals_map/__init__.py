@@ -36,6 +36,16 @@ PolarsExpr.map = property(lambda self: PolarsExprMapNamespace(self))  # type: ig
 # Compliant layer: Polars series
 PolarsSeries.map = property(lambda self: PolarsSeriesMapNamespace(self))  # type: ignore[attr-defined]
 
+# Compliant layer: Ibis expression (optional)
+try:
+    from narwhals._ibis.expr import IbisExpr
+
+    from narwhals_map._ibis.expr_map import IbisExprMapNamespace
+
+    IbisExpr.map = property(lambda self: IbisExprMapNamespace(self))  # type: ignore[attr-defined]
+except ImportError:
+    pass
+
 # Re-export col for convenience
 col = nw.col
 

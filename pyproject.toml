@@ -18,6 +18,9 @@ polars = [
     "polars>=1.39.3",
     "polars-map>=0.2.0",
 ]
+ibis = [
+    "ibis-framework>=12.0.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.10.4,<0.11.0"]
@@ -33,4 +36,5 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cases>=3.10.1",
     "ruff>=0.15.9",
+    "ibis-framework[duckdb]>=12.0.0",
 ]
