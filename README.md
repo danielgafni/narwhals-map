@@ -8,3 +8,6 @@ Supported Narwhals backends:
   - Arrow
   - Ibis
   - Polars (via [`polars-map`](https://github.com/hafaio/polars-map))
+
+Currently monkey-patches Narwhals to expose a new `nw.col.map` namespace. Methods implemented:
+  - `nw.col.map.get`
