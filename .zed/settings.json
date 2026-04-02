@@ -1,0 +1,19 @@
+{
+  "languages": {
+    "Python": {
+      "language_servers": [
+        "pyrefly",
+        "ruff",
+        "!ty",
+        "!basedpyright"
+      ]
+    },
+    "Zig": {
+      "language_servers": [
+        "zls"
+      ]
+    }
+  },
+  "lsp": {
+  },
+}

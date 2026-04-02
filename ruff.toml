@@ -1,0 +1,13 @@
+src = ["src", "tests"]
+line-length = 144
+
+[lint]
+extend-select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # imports
+    "I"
+]

@@ -1,0 +1,36 @@
+[project]
+name = "narwhals-map"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "danielgafni", email = "danielgafni16@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+]
+
+[project.optional-dependencies]
+pyarrow = [
+    "pyarrow>=23.0.1",
+]
+polars = [
+    "polars>=1.39.3",
+    "polars-map>=0.2.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.4,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    # narwhals has to depend on us I guess?
+    # so we can't depend on it
+    "narwhals>=2.18.1",
+    "prek>=0.3.8",
+    "pyrefly>=0.59.1",
+    "pytest>=9.0.2",
+    "pytest-cases>=3.10.1",
+    "ruff>=0.15.9",
+]
