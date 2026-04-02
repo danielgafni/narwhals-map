@@ -2,14 +2,16 @@ from typing import Any, NamedTuple
 
 import narwhals as nw
 import polars as pl
-import polars_map
+import polars_map  # noqa: F401 - triggers plugin registration
 import pyarrow as pa
 from pytest_cases import fixture, parametrize, parametrize_with_cases
 
 import narwhals_map  # noqa: F401 - triggers monkey-patching
+from narwhals_map import Map
 
 BACKENDS = ["pyarrow", "polars_eager", "polars_lazy", "polars_map_eager", "polars_map_lazy", "ibis"]
 SERIES_BACKENDS = ["pyarrow", "polars", "polars_map"]
+MAP_DTYPE_BACKENDS = [b for b in BACKENDS if b not in {"polars_eager", "polars_lazy"}]
 
 
 class MapTestData(NamedTuple):
@@ -50,17 +52,11 @@ class MapCases:
 
 def _pa_table_to_polars_map(pa_table: pa.Table) -> pl.DataFrame:
     """Convert a PyArrow table with map columns to a Polars DataFrame using polars_map.Map dtype."""
-    columns: list[pl.Series] = []
-    for name in pa_table.column_names:
-        col = pa_table.column(name)
-        if isinstance(col.type, pa.MapType):
-            key_series = pl.Series(pa.array([], type=col.type.key_type))
-            value_series = pl.Series(pa.array([], type=col.type.item_type))
-            values = pl.Series(col).to_list()
-            columns.append(pl.Series(name, values, dtype=polars_map.Map(key_series.dtype, value_series.dtype)))
-        else:
-            columns.append(pl.Series(name, col))
-    return pl.DataFrame(columns)
+    df = pl.from_arrow(pa_table)
+    map_cols = [name for name in pa_table.column_names if isinstance(pa_table.schema.field(name).type, pa.MapType)]
+    if map_cols:
+        df = df.with_columns(pl.col(c).map.from_entries() for c in map_cols)  # pyrefly: ignore [missing-attribute]
+    return df  # pyrefly: ignore [bad-return]
 
 
 def _to_native(pa_table: pa.Table, backend: str) -> Any:
@@ -105,7 +101,7 @@ def series_test_data(pa_table: pa.Table, key: Any, expected: list[Any], backend:
 
 def test_expr_map_get(map_test_data: MapTestData) -> None:
     df, key, expected = map_test_data
-    result = df.select(narwhals_map.col("map_col").map.get(key))  # pyrefly: ignore [missing-attribute]
+    result = df.select(nw.col("map_col").map.get(key))  # pyrefly: ignore [missing-attribute]
     if isinstance(result, nw.LazyFrame):
         result = result.collect()
     pa_result = result.to_arrow()
@@ -117,3 +113,19 @@ def test_series_map_get(series_test_data: SeriesTestData) -> None:
     result = series.map.get(key)  # pyrefly: ignore [missing-attribute]
     assert result.to_list() == expected
     assert result.name == str(key)
+
+
+_MAP_DTYPE_PA_TABLE = pa.table({"map_col": pa.array([[("a", 1)]], type=pa.map_(pa.string(), pa.int64()))})
+
+
+@fixture
+@parametrize("backend", MAP_DTYPE_BACKENDS)
+def map_dtype_df(backend: str) -> nw.DataFrame | nw.LazyFrame:
+    return nw.from_native(_to_native(_MAP_DTYPE_PA_TABLE, backend))
+
+
+def test_schema_map_dtype(map_dtype_df: nw.DataFrame | nw.LazyFrame) -> None:
+    schema = map_dtype_df.collect_schema() if isinstance(map_dtype_df, nw.LazyFrame) else map_dtype_df.schema
+    assert isinstance(schema["map_col"], Map)
+    assert schema["map_col"] == Map(nw.String(), nw.Int64())
+    assert repr(schema["map_col"]) == "Map(String, Int64)"

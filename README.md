@@ -2,6 +2,11 @@
 
 An experimental Narwhals plugin adding `Map` datatype.
 
+> [!TIP]
+> See [`narwhals-dev/narwhals#3525`](https://github.com/narwhals-dev/narwhals/issues/3525) issue for more info.
+
+## Summary
+
 `Map` is natively supported across all backends except for Polars.
 
 Supported Narwhals backends:

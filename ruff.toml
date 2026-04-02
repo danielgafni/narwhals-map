@@ -11,3 +11,6 @@ extend-select = [
     # imports
     "I"
 ]
+
+[lint.flake8-tidy-imports]
+banned-module-level-imports = ["pyarrow", "polars", "ibis"]

@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
-from narwhals.dtype import DType, DTypeClass, NestedType  # pyrefly: ignore [missing-import]
+from narwhals.dtypes import DType, DTypeClass, NestedType
 
 if TYPE_CHECKING:
     from narwhals.typing import IntoDType
