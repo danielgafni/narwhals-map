@@ -1,21 +1,51 @@
 from typing import Any, NamedTuple
 
+import ibis.expr.datatypes.core
 import narwhals as nw
 import polars as pl
 import polars_map  # noqa: F401 - triggers plugin registration
 import pyarrow as pa
+from narwhals.typing import Frame
 from pytest_cases import fixture, parametrize, parametrize_with_cases
 
 import narwhals_map  # noqa: F401 - triggers monkey-patching
-from narwhals_map import Map
 
-BACKENDS = ["pyarrow", "polars_eager", "polars_lazy", "polars_map_eager", "polars_map_lazy", "ibis"]
-SERIES_BACKENDS = ["pyarrow", "polars", "polars_map"]
-MAP_DTYPE_BACKENDS = [b for b in BACKENDS if b not in {"polars_eager", "polars_lazy"}]
+Impl = nw.Implementation
+
+BACKENDS: list[tuple[Impl, bool]] = [
+    (Impl.PYARROW, False),
+    (Impl.POLARS, False),
+    (Impl.POLARS, True),
+    (Impl.IBIS, True),
+]
+
+SERIES_BACKENDS: list[Impl] = [Impl.PYARROW, Impl.POLARS]
+
+EXPECTED_NATIVE_MAP_DTYPE: dict[Impl, type] = {
+    Impl.PYARROW: pa.MapType,
+    Impl.POLARS: polars_map.Map,
+    Impl.IBIS: ibis.expr.datatypes.core.Map,
+}
 
 
-class MapTestData(NamedTuple):
-    df: nw.DataFrame | nw.LazyFrame
+def _get_native_col_dtype(
+    native: pa.Table | pl.DataFrame | pl.LazyFrame | ibis.Table,
+    col: str,
+    impl: Impl,
+) -> pa.DataType | pl.DataType | ibis.expr.datatypes.core.DataType:
+    """Extract a column's dtype from a native frame."""
+    if impl == Impl.PYARROW:
+        return native.schema.field(col).type  # type: ignore[union-attr]
+    elif impl == Impl.IBIS:
+        return native.schema()[col]  # type: ignore[union-attr]
+    elif impl == Impl.POLARS:
+        schema = native.collect_schema() if isinstance(native, pl.LazyFrame) else native.schema  # type: ignore[union-attr]
+        return schema[col]
+    raise NotImplementedError(f"Implementation {impl} is not supported")
+
+
+class FrameTestData(NamedTuple):
+    df: Frame
     key: Any
     expected: list[Any]
 
@@ -50,8 +80,10 @@ class MapCases:
         return pa.table({"map_col": map_array}), 10, ["a", "c", "e"]
 
 
-def _pa_table_to_polars_map(pa_table: pa.Table) -> pl.DataFrame:
+def _pa_table_to_polars_map(pa_table: pa.Table) -> "pl.DataFrame":
     """Convert a PyArrow table with map columns to a Polars DataFrame using polars_map.Map dtype."""
+    import polars as pl
+
     df = pl.from_arrow(pa_table)
     map_cols = [name for name in pa_table.column_names if isinstance(pa_table.schema.field(name).type, pa.MapType)]
     if map_cols:
@@ -59,47 +91,43 @@ def _pa_table_to_polars_map(pa_table: pa.Table) -> pl.DataFrame:
     return df  # pyrefly: ignore [bad-return]
 
 
-def _to_native(pa_table: pa.Table, backend: str) -> Any:
-    if backend == "pyarrow":
+def _make_native_df(pa_table: pa.Table, impl: Impl, lazy: bool) -> "pl.DataFrame | pl.LazyFrame | pa.Table | ibis.Table":
+    if impl == Impl.PYARROW:
         return pa_table
-    if backend == "ibis":
+    elif impl == Impl.IBIS:
         import ibis
 
         return ibis.memtable(pa_table)
-    if backend.startswith("polars_map"):
+    elif impl == Impl.POLARS:
         df = _pa_table_to_polars_map(pa_table)
-        if backend == "polars_map_lazy":
-            return df.lazy()  # pyrefly: ignore [missing-attribute]
-        return df
-    df = pl.from_arrow(pa_table)
-    if backend == "polars_lazy":
-        return df.lazy()  # pyrefly: ignore [missing-attribute]
-    return df
+
+        if lazy:
+            return df.lazy()
+        else:
+            return df
+    raise NotImplementedError(f"Implementation {impl} is not supported")
 
 
 @fixture
-@parametrize("backend", BACKENDS)
+@parametrize("impl, lazy", BACKENDS)
 @parametrize_with_cases("pa_table, key, expected", cases=MapCases)
-def map_test_data(pa_table: pa.Table, key: Any, expected: list[Any], backend: str) -> MapTestData:
-    return MapTestData(df=nw.from_native(_to_native(pa_table, backend)), key=key, expected=expected)
+def map_test_data(pa_table: pa.Table, key: Any, expected: list[Any], impl: Impl, lazy: bool) -> FrameTestData:
+    return FrameTestData(df=nw.from_native(_make_native_df(pa_table, impl, lazy)), key=key, expected=expected)
 
 
 @fixture
-@parametrize("backend", SERIES_BACKENDS)
+@parametrize("impl", SERIES_BACKENDS)
 @parametrize_with_cases("pa_table, key, expected", cases=MapCases)
-def series_test_data(pa_table: pa.Table, key: Any, expected: list[Any], backend: str) -> SeriesTestData:
-    if backend == "pyarrow":
+def series_test_data(pa_table: pa.Table, key: Any, expected: list[Any], impl: Impl) -> SeriesTestData:
+    if impl == Impl.PYARROW:
         series = nw.from_native(pa_table)["map_col"]
-    elif backend == "polars_map":
-        pl_series = _pa_table_to_polars_map(pa_table)["map_col"]  # pyrefly: ignore [bad-index]
-        series = nw.from_native(pl_series, series_only=True)
     else:
-        pl_series = pl.from_arrow(pa_table)["map_col"]  # pyrefly: ignore [bad-index]
+        pl_series = _pa_table_to_polars_map(pa_table)["map_col"]  # pyrefly: ignore [bad-index]
         series = nw.from_native(pl_series, series_only=True)
     return SeriesTestData(series=series, key=key, expected=expected)
 
 
-def test_expr_map_get(map_test_data: MapTestData) -> None:
+def test_expr_map_get(map_test_data: FrameTestData) -> None:
     df, key, expected = map_test_data
     result = df.select(nw.col("map_col").map.get(key))  # pyrefly: ignore [missing-attribute]
     if isinstance(result, nw.LazyFrame):
@@ -115,17 +143,45 @@ def test_series_map_get(series_test_data: SeriesTestData) -> None:
     assert result.name == str(key)
 
 
+_TO_NATIVE_PA_TABLE = pa.table(
+    {
+        "map_col": pa.array(
+            [[(1, 10), (2, 20)], [(1, 30), (2, 40)], [(1, 50)]],
+            type=pa.map_(pa.int64(), pa.int64()),
+        )
+    }
+)
+
+
+@fixture
+@parametrize("impl, lazy", BACKENDS)
+def to_native_test_data(impl: Impl, lazy: bool) -> tuple[Impl, Frame]:
+    nw_df = nw.from_native(_make_native_df(_TO_NATIVE_PA_TABLE, impl, lazy))
+    return impl, nw_df
+
+
+def test_to_native_keeps_map(to_native_test_data: tuple[Impl, Frame]) -> None:
+    impl, nw_df = to_native_test_data
+    result = nw_df.with_columns(nw.col("map_col").map.get(1))  # pyrefly: ignore [missing-attribute]
+    assert result.schema["map_col"] == narwhals_map.Map
+    assert result.schema["1"].is_integer()
+    native = result.to_native()
+    map_dtype = _get_native_col_dtype(native, "map_col", impl)
+    assert isinstance(map_dtype, EXPECTED_NATIVE_MAP_DTYPE[impl])
+
+
 _MAP_DTYPE_PA_TABLE = pa.table({"map_col": pa.array([[("a", 1)]], type=pa.map_(pa.string(), pa.int64()))})
 
 
 @fixture
-@parametrize("backend", MAP_DTYPE_BACKENDS)
-def map_dtype_df(backend: str) -> nw.DataFrame | nw.LazyFrame:
-    return nw.from_native(_to_native(_MAP_DTYPE_PA_TABLE, backend))
+@parametrize("impl, lazy", BACKENDS)
+def map_dtype_native(impl: Impl, lazy: bool) -> tuple[Impl, Any]:
+    native = _make_native_df(_MAP_DTYPE_PA_TABLE, impl, lazy)
+    nw_df = nw.from_native(native)
+    return impl, nw_df.to_native()
 
 
-def test_schema_map_dtype(map_dtype_df: nw.DataFrame | nw.LazyFrame) -> None:
-    schema = map_dtype_df.collect_schema() if isinstance(map_dtype_df, nw.LazyFrame) else map_dtype_df.schema
-    assert isinstance(schema["map_col"], Map)
-    assert schema["map_col"] == Map(nw.String(), nw.Int64())
-    assert repr(schema["map_col"]) == "Map(String, Int64)"
+def test_schema_map_dtype(map_dtype_native: tuple[Impl, Any]) -> None:
+    impl, native = map_dtype_native
+    map_dtype = _get_native_col_dtype(native, "map_col", impl)
+    assert isinstance(map_dtype, EXPECTED_NATIVE_MAP_DTYPE[impl])
