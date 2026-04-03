@@ -1,5 +1,7 @@
 # narwhals-map
 
+[![PyPI](https://img.shields.io/pypi/v/narwhals-map)](https://pypi.org/project/narwhals-map/)
+
 An experimental Narwhals plugin adding `Map` datatype.
 
 > [!TIP]
@@ -10,9 +12,15 @@ An experimental Narwhals plugin adding `Map` datatype.
 Supported Narwhals backends:
   - Arrow
   - Ibis
-  - Polars (via [`polars-map`](https://github.com/hafaio/polars-map))
+  - Polars (via [`polars-map`](https://pypi.org/project/polars-map/))
 
 Currently monkey-patches Narwhals to expose a new `nw.col.map` namespace.
+
+## Installation
+
+```console
+$ uv add narwhals-map
+```
 
 ## Usage
 
