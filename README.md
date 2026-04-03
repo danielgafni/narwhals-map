@@ -5,8 +5,6 @@ An experimental Narwhals plugin adding `Map` datatype.
 > [!TIP]
 > See [`narwhals-dev/narwhals#3525`](https://github.com/narwhals-dev/narwhals/issues/3525) issue for more info.
 
-## Summary
-
 `Map` is natively supported across all backends except for Polars.
 
 Supported Narwhals backends:
@@ -14,8 +12,17 @@ Supported Narwhals backends:
   - Ibis
   - Polars (via [`polars-map`](https://github.com/hafaio/polars-map))
 
-Currently monkey-patches Narwhals to expose a new `nw.col.map` namespace. Methods implemented:
-  - `nw.col.map.get`
+Currently monkey-patches Narwhals to expose a new `nw.col.map` namespace.
+
+## Usage
+
+```python
+import narwhals as nw
+import narwhals_map  # registers the Map dtype and .map namespace
+
+df = nw.from_native(native_df)  # use polars_map.Map for Polars-backed frames
+result = df.select(nw.col("map_col").map.get("key1"))
+```
 
 ## Known Limitations
 
