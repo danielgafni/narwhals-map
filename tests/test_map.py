@@ -143,6 +143,32 @@ def test_series_map_get(series_test_data: SeriesTestData) -> None:
     assert result.name == str(key)
 
 
+FROM_DICT_BACKENDS = [Impl.PYARROW, Impl.POLARS]
+
+
+@fixture
+@parametrize("impl", FROM_DICT_BACKENDS)
+@parametrize_with_cases("pa_table, key, expected", cases=MapCases)
+def from_dict_test_data(pa_table: pa.Table, key: Any, expected: list[Any], impl: Impl) -> tuple[Impl, nw.DataFrame]:
+    source_df = nw.from_native(_make_native_df(pa_table, impl, lazy=False))
+    map_dtype = source_df.schema["map_col"]
+    df = nw.from_dict(
+        {"map_col": source_df["map_col"]},
+        schema={"map_col": map_dtype},
+        backend=impl,  # pyrefly: ignore [bad-argument-type]
+    )
+    return impl, df
+
+
+def test_from_dict_with_map_schema(from_dict_test_data: tuple[Impl, nw.DataFrame]) -> None:
+    impl, df = from_dict_test_data
+    assert isinstance(df.schema["map_col"], narwhals_map.Map)
+
+    native = df.to_native()
+    native_dtype = _get_native_col_dtype(native, "map_col", impl)
+    assert isinstance(native_dtype, EXPECTED_NATIVE_MAP_DTYPE[impl])
+
+
 _TO_NATIVE_PA_TABLE = pa.table(
     {
         "map_col": pa.array(

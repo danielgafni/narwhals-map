@@ -37,6 +37,18 @@ try:
         return _orig_arrow_native_to_narwhals_dtype(dtype, version)
 
     _arrow_utils.native_to_narwhals_dtype = _patched_arrow_native_to_narwhals_dtype  # type: ignore[assignment]
+
+    _orig_arrow_narwhals_to_native_dtype = _arrow_utils.narwhals_to_native_dtype
+
+    def _patched_arrow_narwhals_to_native_dtype(dtype, version):  # type: ignore[no-untyped-def]
+        if isinstance(dtype, Map):
+            return pa.map_(
+                _orig_arrow_narwhals_to_native_dtype(dtype.key, version),
+                _orig_arrow_narwhals_to_native_dtype(dtype.value, version),
+            )
+        return _orig_arrow_narwhals_to_native_dtype(dtype, version)
+
+    _arrow_utils.narwhals_to_native_dtype = _patched_arrow_narwhals_to_native_dtype  # type: ignore[assignment]
 except ImportError:
     pass
 
