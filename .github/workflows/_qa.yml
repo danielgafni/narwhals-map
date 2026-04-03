@@ -9,6 +9,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-suffix: prek
       - run: uv sync --all-extras
       - uses: j178/prek-action@v2
 
@@ -17,5 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-suffix: pytest
       - run: uv sync --all-extras
       - run: uv run pytest
