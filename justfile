@@ -15,3 +15,6 @@ release bump="":
     uv version --bump {{bump}}
     version="v$(uv version --short)"
     echo "__version__ = \"$(uv version --short)\"" > src/narwhals_map/_version.py
+
+nox:
+    uv run nox
