@@ -143,6 +143,73 @@ def test_series_map_get(series_test_data: SeriesTestData) -> None:
     assert result.name == str(key)
 
 
+class NestedMapCases:
+    def case_list_values(self) -> tuple[pa.Table, Any, list[Any]]:
+        map_array = pa.array(
+            [[(1, [10, 20]), (2, [30])], [(1, [40])]],
+            type=pa.map_(pa.int64(), pa.list_(pa.int64())),
+        )
+        return pa.table({"map_col": map_array}), 1, [[10, 20], [40]]
+
+    def case_struct_values(self) -> tuple[pa.Table, Any, list[Any]]:
+        map_array = pa.array(
+            [
+                [(1, {"x": 10, "y": "a"}), (2, {"x": 20, "y": "b"})],
+                [(1, {"x": 30, "y": "c"})],
+            ],
+            type=pa.map_(pa.int64(), pa.struct([("x", pa.int64()), ("y", pa.string())])),
+        )
+        return pa.table({"map_col": map_array}), 1, [{"x": 10, "y": "a"}, {"x": 30, "y": "c"}]
+
+    def case_nested_map_values(self) -> tuple[pa.Table, Any, list[Any]]:
+        map_array = pa.array(
+            [
+                [(1, [("a", 100)]), (2, [("b", 200)])],
+                [(1, [("c", 300)])],
+            ],
+            type=pa.map_(pa.int64(), pa.map_(pa.string(), pa.int64())),
+        )
+        # Inner maps may appear as list of tuples (PyArrow/Ibis) or list of dicts (Polars)
+        return pa.table({"map_col": map_array}), 1, [{"a": 100}, {"c": 300}]
+
+
+@fixture
+@parametrize("impl, lazy", BACKENDS)
+@parametrize_with_cases("pa_table, key, expected", cases=NestedMapCases)
+def nested_map_test_data(pa_table: pa.Table, key: Any, expected: list[Any], impl: Impl, lazy: bool) -> tuple[Frame, Any, list[Any]]:
+    return nw.from_native(_make_native_df(pa_table, impl, lazy)), key, expected
+
+
+def _normalize_map_pylist(values: list[Any]) -> list[Any]:
+    """Normalize map-like values: convert list of tuples/dicts to dict.
+
+    This is required because of the current limitation of `.to_arrow()` with `polars-map`-backed Narwhals frames:
+        it produces `list<struct<key,value>>` columns instead of Arrow `map` types.
+    """
+    result = []
+    for v in values:
+        if isinstance(v, list) and v and isinstance(v[0], (tuple, dict)):
+            if isinstance(v[0], tuple):
+                result.append(dict(v))
+            else:
+                result.append({d["key"]: d["value"] for d in v})
+        else:
+            result.append(v)
+    return result
+
+
+def test_nested_map_get(nested_map_test_data: tuple[Frame, Any, list[Any]]) -> None:
+    df, key, expected = nested_map_test_data
+    schema = df.collect_schema() if isinstance(df, nw.LazyFrame) else df.schema
+    assert isinstance(schema["map_col"], narwhals_map.Map)
+
+    result = df.select(nw.col("map_col").map.get(key))  # pyrefly: ignore [missing-attribute]
+    if isinstance(result, nw.LazyFrame):
+        result = result.collect()
+    pa_result = result.to_arrow()
+    assert _normalize_map_pylist(pa_result[str(key)].to_pylist()) == expected
+
+
 FROM_DICT_BACKENDS = [Impl.PYARROW, Impl.POLARS]
 
 

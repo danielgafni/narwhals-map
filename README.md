@@ -16,3 +16,7 @@ Supported Narwhals backends:
 
 Currently monkey-patches Narwhals to expose a new `nw.col.map` namespace. Methods implemented:
   - `nw.col.map.get`
+
+## Known Limitations
+
+- **`.to_arrow()` on Polars-backed frames**: Polars (via `polars-map`) stores maps as `List(Struct({key, value}))` internally. Calling `.to_arrow()` on a Polars-backed Narwhals frame produces `list<struct<key, value>>` columns instead of Arrow `map` types. PyArrow and Ibis backends are unaffected.

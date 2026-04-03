@@ -31,8 +31,8 @@ try:
     def _patched_arrow_native_to_narwhals_dtype(dtype, version):  # type: ignore[no-untyped-def]
         if isinstance(dtype, pa.MapType):
             return Map(
-                _orig_arrow_native_to_narwhals_dtype(dtype.key_type, version),
-                _orig_arrow_native_to_narwhals_dtype(dtype.item_type, version),
+                _patched_arrow_native_to_narwhals_dtype(dtype.key_type, version),
+                _patched_arrow_native_to_narwhals_dtype(dtype.item_type, version),
             )
         return _orig_arrow_native_to_narwhals_dtype(dtype, version)
 
@@ -71,8 +71,8 @@ try:
     def _patched_polars_native_to_narwhals_dtype(dtype, version):  # type: ignore[no-untyped-def]
         if isinstance(dtype, _polars_map.Map):
             return Map(
-                _orig_polars_native_to_narwhals_dtype(dtype.key, version),
-                _orig_polars_native_to_narwhals_dtype(dtype.value, version),
+                _patched_polars_native_to_narwhals_dtype(dtype.key, version),
+                _patched_polars_native_to_narwhals_dtype(dtype.value, version),
             )
         return _orig_polars_native_to_narwhals_dtype(dtype, version)
 
@@ -95,8 +95,8 @@ try:
     def _patched_ibis_native_to_narwhals_dtype(ibis_dtype, version):  # type: ignore[no-untyped-def]
         if ibis_dtype.is_map():
             return Map(
-                _orig_ibis_native_to_narwhals_dtype(ibis_dtype.key_type, version),
-                _orig_ibis_native_to_narwhals_dtype(ibis_dtype.value_type, version),
+                _patched_ibis_native_to_narwhals_dtype(ibis_dtype.key_type, version),
+                _patched_ibis_native_to_narwhals_dtype(ibis_dtype.value_type, version),
             )
         return _orig_ibis_native_to_narwhals_dtype(ibis_dtype, version)
 
