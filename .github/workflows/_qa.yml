@@ -15,13 +15,37 @@ jobs:
       - run: uv sync --all-extras
       - uses: j178/prek-action@v2
 
-  pytest:
+  nox-sessions:
     runs-on: ubuntu-latest
+    outputs:
+      sessions: ${{ steps.list.outputs.sessions }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - id: list
+        run: echo "sessions=$(uvx --from nox --with nox-uv nox -l --json | jq -c '[.[].session]')" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: nox-sessions
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        session: ${{ fromJson(needs.nox-sessions.outputs.sessions) }}
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-suffix: pytest
-      - run: uv sync --all-extras
-      - run: uv run pytest
+          cache-suffix: ${{ matrix.session }}
+      - run: uvx --from nox --with nox-uv nox -s "${{ matrix.session }}"
+
+  check:
+    if: always()
+    needs:
+      - prek
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
