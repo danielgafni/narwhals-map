@@ -31,7 +31,3 @@ import narwhals_map  # registers the Map dtype and .map namespace
 df = nw.from_native(native_df)  # use polars_map.Map for Polars-backed frames
 result = df.select(nw.col("map_col").map.get("key1"))
 ```
-
-## Known Limitations
-
-- **`.to_arrow()` on Polars-backed frames**: Polars (via `polars-map`) stores maps as `List(Struct({key, value}))` internally. Calling `.to_arrow()` on a Polars-backed Narwhals frame produces `list<struct<key, value>>` columns instead of Arrow `map` types. PyArrow and Ibis backends are unaffected.
