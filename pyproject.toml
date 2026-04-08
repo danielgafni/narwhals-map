@@ -31,7 +31,7 @@ pyarrow = [
 ]
 polars = [
     "polars>=1.39.3",
-    "polars-map>=0.2.0",
+    "polars-map>=0.2.1",
 ]
 ibis = [
     "ibis-framework>=12.0.0",

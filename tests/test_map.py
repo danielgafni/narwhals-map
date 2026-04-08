@@ -3,7 +3,7 @@ from typing import Any, NamedTuple
 import ibis.expr.datatypes.core
 import narwhals as nw
 import polars as pl
-import polars_map  # noqa: F401 - triggers plugin registration
+import polars_map
 import pyarrow as pa
 from narwhals.typing import Frame
 from pytest_cases import fixture, parametrize, parametrize_with_cases
@@ -82,13 +82,7 @@ class MapCases:
 
 def _pa_table_to_polars_map(pa_table: pa.Table) -> "pl.DataFrame":
     """Convert a PyArrow table with map columns to a Polars DataFrame using polars_map.Map dtype."""
-    import polars as pl
-
-    df = pl.from_arrow(pa_table)
-    map_cols = [name for name in pa_table.column_names if isinstance(pa_table.schema.field(name).type, pa.MapType)]
-    if map_cols:
-        df = df.with_columns(pl.col(c).map.from_entries() for c in map_cols)  # pyrefly: ignore [missing-attribute]
-    return df  # pyrefly: ignore [bad-return]
+    return polars_map.from_arrow(pa_table)  # pyrefly: ignore [bad-return]
 
 
 def _make_native_df(pa_table: pa.Table, impl: Impl, lazy: bool) -> "pl.DataFrame | pl.LazyFrame | pa.Table | ibis.Table":
@@ -169,8 +163,7 @@ class NestedMapCases:
             ],
             type=pa.map_(pa.int64(), pa.map_(pa.string(), pa.int64())),
         )
-        # Inner maps may appear as list of tuples (PyArrow/Ibis) or list of dicts (Polars)
-        return pa.table({"map_col": map_array}), 1, [{"a": 100}, {"c": 300}]
+        return pa.table({"map_col": map_array}), 1, [[("a", 100)], [("c", 300)]]
 
 
 @fixture
@@ -178,24 +171,6 @@ class NestedMapCases:
 @parametrize_with_cases("pa_table, key, expected", cases=NestedMapCases)
 def nested_map_test_data(pa_table: pa.Table, key: Any, expected: list[Any], impl: Impl, lazy: bool) -> tuple[Frame, Any, list[Any]]:
     return nw.from_native(_make_native_df(pa_table, impl, lazy)), key, expected
-
-
-def _normalize_map_pylist(values: list[Any]) -> list[Any]:
-    """Normalize map-like values: convert list of tuples/dicts to dict.
-
-    This is required because of the current limitation of `.to_arrow()` with `polars-map`-backed Narwhals frames:
-        it produces `list<struct<key,value>>` columns instead of Arrow `map` types.
-    """
-    result = []
-    for v in values:
-        if isinstance(v, list) and v and isinstance(v[0], (tuple, dict)):
-            if isinstance(v[0], tuple):
-                result.append(dict(v))
-            else:
-                result.append({d["key"]: d["value"] for d in v})
-        else:
-            result.append(v)
-    return result
 
 
 def test_nested_map_get(nested_map_test_data: tuple[Frame, Any, list[Any]]) -> None:
@@ -207,7 +182,7 @@ def test_nested_map_get(nested_map_test_data: tuple[Frame, Any, list[Any]]) -> N
     if isinstance(result, nw.LazyFrame):
         result = result.collect()
     pa_result = result.to_arrow()
-    assert _normalize_map_pylist(pa_result[str(key)].to_pylist()) == expected
+    assert pa_result[str(key)].to_pylist() == expected
 
 
 FROM_DICT_BACKENDS = [Impl.PYARROW, Impl.POLARS]

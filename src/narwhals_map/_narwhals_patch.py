@@ -77,6 +77,18 @@ try:
         return _orig_polars_native_to_narwhals_dtype(dtype, version)
 
     _polars_utils.native_to_narwhals_dtype = _patched_polars_native_to_narwhals_dtype  # type: ignore[assignment]
+
+    from narwhals._polars.dataframe import PolarsDataFrame
+
+    def _polars_df_to_arrow(self):  # type: ignore[no-untyped-def]
+        return _polars_map.to_arrow(self.native)
+
+    PolarsDataFrame.to_arrow = _polars_df_to_arrow  # type: ignore[attr-defined]
+
+    def _polars_series_to_arrow(self):  # type: ignore[no-untyped-def]
+        return _polars_map.to_arrow_array(self.native)
+
+    PolarsSeries.to_arrow = _polars_series_to_arrow  # type: ignore[attr-defined]
 except ImportError:
     pass
 
